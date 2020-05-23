@@ -1,154 +1,199 @@
 #include <iostream>
-#include <vector>
+#include <cstdio>
+#include <string>
+#include <map>
+#include <list>
+#include <queue>
 
 using namespace std;
 
-int min(int a, int b) {
-    return a < b ? a : b;
+enum StringValue {
+    evCommit, \
+    evReset, \
+    evLog, \
+    evCheckout, \
+    evStatus, \
+    evBranch, \
+    evSync, \
+    evNotDefined
+};
+
+static map<string, StringValue> s_map;
+
+void Initialize() {
+    s_map["commit"]  = evCommit;
+    s_map["reset"]   = evReset;
+    s_map["log"]     = evLog;
+    s_map["checkout"]= evCheckout;
+    s_map["status"]  = evStatus;
+    s_map["branch"]  = evBranch;
+    s_map["sync"]    = evSync;
 }
 
-int main() {
-    int idA=0, idB=0;
-    string input;
-    vector<pair<int,string>> branch, feature;
-    int ind = 0, pos = 0;;
-    while(1) {
-        cin >> input;
-        if(input == "commit") {
-            string nama;
-            cin >> nama;
-            if(ind == 0) {
-                pair<int,string> x = make_pair(idA,nama);
-                branch.push_back(x);
-                pos = idA;
-                idA++;
-            } else if(ind == 1) {
-                pair<int,string> x = make_pair(idB,nama);
-                feature.push_back(x);
-                pos = idB;
-                idB++;
-            }
-        } else if (input == "reset") {
-            int del;
-            cin >> del;
-            if(ind == 0) {
-                for(int l = branch.size()-1; l>=0; l--) {
-                    if(branch[l].first==del) {
-                        pos = l;
-                        cout << "Anda berada di commit " << branch[l].second << endl;
-                        while(branch.back().first != del) {
-                            branch.pop_back();
-                        }
-                        break;
-                    }
-                }
-            } else if(ind == 1) {
-                for(int l = feature.size()-1; l>=0; l--) {
-                    if(feature[l].first==del) {
-                        pos = l;
-                        cout << "Anda berada di commit " << feature[l].second << endl;
-                        while(feature.back().first != del) {
-                            feature.pop_back();
-                        }
-                        break;
-                    }
-                }
-            }
-        } else if (input == "log") {
-            if(ind == 0) {
-                if(branch.size()==0) {
-                    cout << endl;
-                } else {
-                    for(int l = branch.size()-1; l>=0; l--) {
-                        cout << branch[l].first << endl << branch[l].second << endl;
-                    }
-                }
-            } else if(ind == 1) {
-                if(feature.size()==0) {
-                    cout << endl;
-                } else {
-                    for(int l = feature.size()-1; l>=0; l--) {
-                        cout << feature[l].first << endl << feature[l].second << endl;
-                    }
-                }
-            }
-        } else if (input == "checkout") {
-            int idx;
-            cin >> idx;
-            if(ind==0) {
-                int flag = 0;
-                for(int l=0; l<=branch.size()-1; l++) {
-                    if(branch[l].first == idx) {
-                        flag = 1;
-                        pos = l;
-                        cout << "Anda berada di commit " << branch[l].second << endl;
-                    }
-                }
-                if(flag == 0) {
-                    cout << "ID tidak ditemukan" << endl;
-                }
-            }else if(ind == 1) {
-                int flag = 0;
-                for(int l=0; l<=feature.size()-1; l++) {
-                    if(feature[l].first == idx) {
-                        flag = 1;
-                        pos = l;
-                        cout << "Anda berada di commit " << feature[l].second << endl;
-                    }
-                }
-                if(flag == 0) {
-                    cout << "ID tidak ditemukan" << endl;
-                }
+typedef pair<string, int> pairs;
 
-            }
-        } else if (input == "status") {
-            if(ind == 0) {
-                cout << "Anda berada di commit " << branch[pos].second << endl;
-            } else if(ind == 1) {
-                cout << "Anda berada di commit " << feature[pos].second << endl;
-            }
-        } else if (input == "branch") {
-            string choice;
-            cin >> choice;
-            if(choice == "master") {
-                ind = 0;
-                if(branch.empty()) {
-                    pos = 0;
-                } else {
-                    pos = branch[branch.size()-1].first;
-                }
-            } else if(choice == "feature") {
-                ind = 1;
-                if(feature.empty()) {
-                    pos = 0;
-                } else {
-                    pos = feature[feature.size()-1].first;
-                }
-            }
-        } else if (input == "sync") {
-            if(ind == 0) {
-                for(int l = min(branch.size(),feature.size())-1; l >= 0; l--) {
-                    if(branch[l].first == feature[l].first && branch[l].second == feature[l].second) {
-                        while(feature[l].first != feature.back().first) {
-                            feature.pop_back();
-                        }
-                        break;
-                    }
-                }
-            } else if(ind == 1) {
-                for(int l = min(branch.size(),feature.size())-1; l >= 0; l--) {
-                    if(branch[l].first == feature[l].first && branch[l].second == feature[l].second) {
-                        while(branch[l].first != branch.back().first) {
-                            branch.pop_back();
-                        }
-                        break;
-                    }
-                }
-            }
-        } else if (input == "quit") {
-            break;
-        } 
+class git {
+private:
+deque<pairs> master, feature,\
+             *pos, *branch;
+string status;
+int idm, idf;
+
+public:
+    git() {
+        this->pos   = &master;
+        this->branch= &feature;
+        status = "";
+        this->idm = this->idf = 0;
     }
 
+    void decision(string q) {
+        switch(s_map[q]) {
+            case evCommit :
+                if (q == "commit") commit();
+                break;
+            case evReset :
+                reset();
+                break;
+            case evLog :
+                log();
+                break;
+            case evCheckout :
+                checkout();
+                break;
+            case evStatus :
+                statusf();
+                break;
+            case evBranch :
+                branchf();
+                break;
+            case evSync :
+                sync();
+                break;
+            default :
+                cout << "error gan\n";
+                break;
+        }
+    }
+
+    void commit() {
+        string temp;
+        cin >> temp;
+
+        if (pos == &master) {
+            pos->push_back(make_pair(temp, idm));
+            idm++;
+        }
+        else {
+            pos->push_back(make_pair(temp, idf));
+            idf++;    
+        }
+        status = temp;
+
+    }
+
+    void reset() {
+        int ID;
+        cin >> ID;
+
+        while(pos->back().second != ID) {
+            pos->pop_back();
+        }
+        cout << "Anda berada di commit " << pos->back().first << endl;
+        // status.first = pos->back().first;
+        // status.second= pos->back().second;
+
+        status = pos->back().first;
+    }
+
+    void log() {
+        if(!pos->empty()) {
+            for (int i = pos->size() - 1; i >= 0; i--) {
+                deque<pairs> temp = *pos;
+                cout << temp[i].second << endl;
+                cout << temp[i].first << endl;
+            }
+        }
+        else cout << endl;
+    }
+
+    void checkout() {
+        int ID;
+        cin >> ID;
+
+        deque<pairs>::reverse_iterator it;
+
+        int count = 0;
+        for (it = pos->rbegin(); it != pos->rend(); it++) {
+            if (it->second == ID) {
+               
+                status = it->first;
+
+                cout << "Anda berada di commit " << it->first << endl;
+                count = 1;
+                break;
+            }
+        }
+        if(!count) cout << "ID tidak ditemukan" << endl;
+    }
+
+    void statusf() {
+        cout << "Anda berada di commit " << status << endl;
+    }
+
+    void branchf() {
+        string query;
+        cin >> query;
+
+        if (query == "master") {
+            pos     = &master;
+            branch  = &feature;
+            if (!pos->empty()) status  = pos->back().first;
+        }
+        else if (query == "feature") {
+            pos     = &feature;
+            branch  = &master;
+            if (!pos->empty()) status  = pos->back().first;
+        }
+    }
+
+    void sync() {
+        // deque<pairs> del = *pos, keep = *branch;
+        
+        size_t l = min(pos->size(), branch->size()) - 1;
+    
+        if (pos == &master) {
+            for(l; l>= 0; l--) {
+                if(feature[l] == master[l]) {
+                    while(feature[l].first != feature.back().first) {
+                        feature.pop_back();
+                    // feature.pop_back();
+                    }
+                    return;
+                }  
+            }
+        }
+        else {
+            for(l; l>= 0; l--) {
+                if(feature[l] == master[l]) {
+                    while(master[l].first != master.back().first) {
+                        master.pop_back();
+                    // feature.pop_back();
+                    }
+                    return;
+                }  
+            }
+        }
+    }
+};
+
+int main() {
+    Initialize();
+    git simple;
+    string input = "";
+    while (input != "quit") {
+        cin >> input;
+        simple.decision(input);
+    }
     return 0;
 }
